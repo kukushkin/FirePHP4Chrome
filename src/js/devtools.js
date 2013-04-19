@@ -141,7 +141,7 @@ function FirePHP4Chrome() {
         var styleParams = [];
         if (metaObject.Label) {
             params.push("%c"+metaObject.Label);
-            styleParams.push("font-weight:bold; padding-left:15px");
+            styleParams.push("font-weight:bold");
         }
 
         /**
@@ -167,7 +167,7 @@ function FirePHP4Chrome() {
                 };
                 if (metaObject.File) {
                     commandObject.params.push('%c'+metaObject.File + ":" + metaObject.Line);
-                    commandObject.styleParams.push("color:gray");
+                    commandObject.styleParams.push("color:gray; padding-left:15px");
                 }
                 break;
 
