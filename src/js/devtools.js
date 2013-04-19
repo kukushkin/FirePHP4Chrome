@@ -1,6 +1,6 @@
 /**
  * Devtools script
- * 
+ *
  * gets ran once development tools are opened
  * Handles watching headers, parsing them, and sending them to the listener
  * @author Aaron Saray aaron@aaronsaray.com
@@ -17,30 +17,30 @@ function FirePHP4Chrome() {
      * This method is used to determine if there are any firePHP Headers in here, and if so, send messages to background.js
      * @param request is a HAR entry
      */
-    this.processHeaders = function(request) {	
+    this.processHeaders = function(request) {
         var wfHeaders = _getWildfireHeaders(request);
         if (_isProperProtocol(wfHeaders)) {
-        	var sortedHeaders = _getSortedMessageHeaders(wfHeaders);
-        	
-        	/**
-        	 * now loop through and build objects from these results
-        	 * remember to combine multi line ones
-        	 */
-        	var headerValue = '';
-        	for (var i = 0; i < sortedHeaders.length; i++) {
-        		var currentHeader = sortedHeaders[i].replace(/^\d*\|/, '');
-        		var parts = currentHeader.split('|');
-        		headerValue += parts[0];
-        		if (parts[1] == '\\') {
-        			/** its multipart so get next part **/
-        			continue;
-        		}
-        		var commandObject = _buildCommandObject(headerValue);
-        		if (commandObject) {
-        			_sendCommandObject(commandObject);
-        		}
-        		headerValue = '';
-        	}
+            var sortedHeaders = _getSortedMessageHeaders(wfHeaders);
+
+            /**
+             * now loop through and build objects from these results
+             * remember to combine multi line ones
+             */
+            var headerValue = '';
+            for (var i = 0; i < sortedHeaders.length; i++) {
+                var currentHeader = sortedHeaders[i].replace(/^\d*\|/, '');
+                var parts = currentHeader.split('|');
+                headerValue += parts[0];
+                if (parts[1] == '\\') {
+                    /** its multipart so get next part **/
+                    continue;
+                }
+                var commandObject = _buildCommandObject(headerValue);
+                if (commandObject) {
+                    _sendCommandObject(commandObject);
+                }
+                headerValue = '';
+            }
         }
     };
 
@@ -87,22 +87,22 @@ function FirePHP4Chrome() {
 
     /**
      * This works with all known wildfire headers, and sorts all of the message headers numerically
-     * 
+     *
      * @param wfHeaders an object of headers matching wildfire specifications
      * @return {array} headers in proper order to be either messaged or combined
      */
     var _getSortedMessageHeaders = function(wfHeaders) {
-    	/** we can't guarantee the order of any headers, so they need to be sorted properly **/
-    	var sortedHeaders = [];
-    	for (var key in wfHeaders) {
-    		if (/^x-wf-1-1-1-/.test(key)) {
-    			/** new key is minus one because our array needs to start at 0 for JS to sort it properly **/
-    			var newKey = parseInt(key.replace('x-wf-1-1-1-', '')) - 1;
-    			sortedHeaders[newKey] = wfHeaders[key];
-    		}
-    	}
-    	return sortedHeaders;
-    }
+        /** we can't guarantee the order of any headers, so they need to be sorted properly **/
+        var sortedHeaders = [];
+        for (var key in wfHeaders) {
+            if (/^x-wf-1-1-1-/.test(key)) {
+                /** new key is minus one because our array needs to start at 0 for JS to sort it properly **/
+                var newKey = parseInt(key.replace('x-wf-1-1-1-', '')) - 1;
+                sortedHeaders[newKey] = wfHeaders[key];
+            }
+        }
+        return sortedHeaders;
+    };
 
     /**
      * Determines if the header that we're receiving is of the proper protocol (0.2)
@@ -118,7 +118,7 @@ function FirePHP4Chrome() {
     /**
      * Build the commandObject object that is sent to the messenger
      *
-     * This takes a header string formatted from a request that has been either singular 
+     * This takes a header string formatted from a request that has been either singular
      * or combined from multiple headers and then builds the proper commandObject from them.  This method is where
      * it determines if its log, warn, table, etc.
      *
@@ -130,7 +130,7 @@ function FirePHP4Chrome() {
         var commandObject = null;
 
         var parsedHeaderResponse = _parseHeaderForResponse(value);
-        
+
         var metaObject = parsedHeaderResponse.metaObject;
         var message = parsedHeaderResponse.message;
 
@@ -138,8 +138,10 @@ function FirePHP4Chrome() {
 
         /** add in the label because its the same for all - table will add 'table' in if this is blank **/
         var params = [];
+        var styleParams = [];
         if (metaObject.Label) {
-            params.push(metaObject.Label);
+            params.push("%c"+metaObject.Label);
+            styleParams.push("font-weight:bold; padding-left:15px");
         }
 
         /**
@@ -151,13 +153,21 @@ function FirePHP4Chrome() {
             case 'info':
             case 'warn':
             case 'error':
-                params.push(message);
+                if ( typeof(message) === "string" ) {
+                    params.push('%c'+message);
+                    styleParams.push('');
+                } else {
+                    params.push('%o');
+                    styleParams.push(message);
+                }
                 commandObject = {
                     type: headerType,
-                    params: params
+                    params: params,
+                    styleParams: styleParams
                 };
                 if (metaObject.File) {
-                    commandObject.params.push(metaObject.File + ":" + metaObject.Line);
+                    commandObject.params.push('%c'+metaObject.File + ":" + metaObject.Line);
+                    commandObject.styleParams.push("color:gray");
                 }
                 break;
 
@@ -169,20 +179,20 @@ function FirePHP4Chrome() {
                  */
                 var consoleGroupCommand = (headerType == 'group_collapsed' ? 'groupCollapsed' : 'group');
 
-	            /**
-	             * in other libraries, it sends a collapsed = true header
-	             */
-	            if (metaObject.Collapsed) {
-		            if (metaObject.Collapsed == 'true') {
-			            consoleGroupCommand = 'groupCollapsed';
-		            }
-	            }
+                /**
+                 * in other libraries, it sends a collapsed = true header
+                 */
+                if (metaObject.Collapsed) {
+                    if (metaObject.Collapsed == 'true') {
+                        consoleGroupCommand = 'groupCollapsed';
+                    }
+                }
 
                 params.push(message);
                 commandObject = {
                     type: consoleGroupCommand,
                     params: params
-                }
+                };
                 break;
 
             case 'groupend':
@@ -194,7 +204,7 @@ function FirePHP4Chrome() {
                 commandObject = {
                     type: 'groupEnd',
                     params: params
-                }
+                };
                 break;
 
             case 'table':
@@ -202,7 +212,7 @@ function FirePHP4Chrome() {
                  * no built in functionality for table - so this gets it pretty enough.
                  * tables probably have a label mostly, so use that as the first row, otherwise just call it a table
                  */
-                if (params.length == 0) {
+                if (params.length === 0) {
                     params.push('Table'); // add the label if there was no label
                 }
                 for (var i = 0; i < message.length; i++) {
@@ -222,7 +232,7 @@ function FirePHP4Chrome() {
                 if (message.Message) {
                     params.push(message.Message); //this was from the trace when it was executed
                 }
-                if (params.length == 0) {
+                if (params.length === 0) {
                     params.push('Stack Trace'); // rarely should this happen, but in case there is a trace with no message or label
                 }
 
@@ -280,6 +290,8 @@ function FirePHP4Chrome() {
      * @return {Object} the processed information with properties of the metaObject and the message
      */
     var _parseHeaderForResponse = function(value) {
+        var metaObject;
+        var message;
         var logArray = JSON.parse(value);
         if (typeof logArray[0] === "undefined") {
             /**
@@ -287,21 +299,21 @@ function FirePHP4Chrome() {
              * which can be any datatype - that's why the code does this
              */
             var label = Object.keys(logArray).pop();
-            var message = logArray[label];
-            var metaObject = {
+            message = logArray[label];
+            metaObject = {
                 Type: "log",
                 Label: label
             };
         }
         else {
-            var metaObject = logArray[0];
-            var message = logArray[1];
+            metaObject = logArray[0];
+            message = logArray[1];
         }
 
         return {
             metaObject: metaObject,
             message: message
-        }
+        };
     };
 
     /**
